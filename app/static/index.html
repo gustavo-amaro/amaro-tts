@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Leitor de PDF</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="#" class="brand" id="home-link">Leitor<span>PDF</span></a>
+    <nav class="tabs">
+      <a href="#" data-tab="home">Ler PDF</a>
+      <a href="#tts" data-tab="tts">Texto para áudio</a>
+    </nav>
+    <div class="engine" id="engine-status"><i></i><span>Carregando modelo…</span></div>
+  </header>
+
+  <!-- tela inicial -->
+  <main id="home" class="home">
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept="application/pdf" hidden>
+      <strong>Solte um PDF aqui</strong>
+      <span>ou clique para escolher</span>
+      <div class="bar" id="upload-bar" hidden><div></div></div>
+    </label>
+    <section>
+      <h2>Seus documentos</h2>
+      <ul class="doclist" id="doclist"><li class="empty">Nenhum documento ainda.</li></ul>
+    </section>
+  </main>
+
+  <!-- leitor -->
+  <main id="reader" class="reader" hidden>
+    <div class="doc-head">
+      <h1 id="doc-title"></h1>
+      <nav class="pagenav">
+        <button id="prev-page" title="Página anterior">‹</button>
+        <span>p. <input id="page-input" type="number" min="1"> / <b id="page-total"></b></span>
+        <button id="next-page" title="Próxima página">›</button>
+      </nav>
+    </div>
+    <article id="page" class="page"></article>
+  </main>
+
+  <!-- texto para áudio -->
+  <main id="tts" class="tts" hidden>
+    <h1>Texto para áudio</h1>
+    <p class="lead">Cole um texto e gere um MP3 com a voz configurada. Parágrafos separados por linha em branco ganham uma pausa maior.</p>
+    <form id="tts-form">
+      <textarea id="tts-text" rows="12" placeholder="Cole ou digite o texto aqui…" maxlength="50000"></textarea>
+      <div class="tts-meta"><span id="tts-count">0 caracteres</span><span id="tts-estimate"></span></div>
+      <input id="tts-style" type="text" maxlength="120"
+             placeholder="Estilo (opcional): ex. tom calmo e acolhedor, um pouco mais lento">
+      <div class="tts-actions">
+        <div class="opts">
+          <label class="voice" title="Áudio de referência (5–30 s) para clonar a voz">
+            <input type="file" class="voice-file" accept="audio/*" hidden>
+            <span class="voice-label">Voz: padrão</span>
+          </label>
+          <button type="button" class="voice-clear link" hidden>remover</button>
+          <label>Qualidade
+            <select class="quality">
+              <option value="6">Rápida</option><option value="10">Alta</option>
+            </select>
+          </label>
+        </div>
+        <button type="submit" class="primary" id="tts-submit">Gerar áudio</button>
+      </div>
+      <p class="form-error" id="tts-error" hidden></p>
+    </form>
+    <section>
+      <h2>Gerações</h2>
+      <ul class="exports" id="exports"><li class="empty">Nenhum áudio gerado ainda.</li></ul>
+    </section>
+  </main>
+
+  <footer class="player" id="player" hidden>
+    <div class="progress"><div id="doc-progress"></div></div>
+    <div class="controls">
+      <button id="prev" title="Trecho anterior (←)">⏮</button>
+      <button id="play" class="play" title="Tocar / pausar (espaço)">▶</button>
+      <button id="next" title="Próximo trecho (→)">⏭</button>
+      <div class="status" id="status">Pronto</div>
+      <div class="opts">
+        <label>Velocidade
+          <select id="speed">
+            <option>0.8</option><option selected>1</option><option>1.15</option>
+            <option>1.25</option><option>1.5</option><option>1.75</option><option>2</option>
+          </select>
+        </label>
+        <label>Qualidade
+          <select class="quality">
+            <option value="6">Rápida</option><option value="10">Alta</option>
+          </select>
+        </label>
+        <label class="voice" title="Áudio de referência (5–30 s) para clonar a voz">
+          <input type="file" class="voice-file" accept="audio/*" hidden>
+          <span class="voice-label">Voz: padrão</span>
+        </label>
+        <button class="voice-clear link" hidden>remover</button>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
