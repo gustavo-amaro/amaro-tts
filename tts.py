@@ -10,16 +10,9 @@ import sys
 import soundfile as sf
 import torch
 
-import voxcpm.model.voxcpm2 as vx2
+from app.tts.synthesizer import patch_xpu
 
-
-def _resolve(device, configured_device="cuda"):
-    if device in (None, "auto", "xpu") and torch.xpu.is_available():
-        return "xpu"
-    return device or "cpu"
-
-
-vx2.resolve_runtime_device = _resolve
+patch_xpu()
 
 from voxcpm import VoxCPM  # noqa: E402
 
