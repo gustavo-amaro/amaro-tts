@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "amarotts",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "D:\\projetos\\tts-pdf\\run.cmd"],
+      "port": 8000
+    }
+  ]
+}
