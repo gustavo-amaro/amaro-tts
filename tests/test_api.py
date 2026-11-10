@@ -1,4 +1,4 @@
-"""Testes de ponta a ponta da API HTTP, com o worker real e um sintetizador falso."""
+"""End-to-end tests of the HTTP API, with the real worker and a fake synthesizer."""
 import asyncio
 import json
 
@@ -42,13 +42,23 @@ def test_static_and_index(client):
     assert client.get("/static/app.js").status_code == 200
 
 
+@pytest.mark.parametrize("path", ["/", "/static/app.js", "/static/i18n.js", "/static/locales/en.json"])
+def test_ui_files_are_revalidated(client, path):
+    r = client.get(path)
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-cache"
+
+
+def test_api_responses_keep_their_own_cache_policy(client):
+    assert "cache-control" not in client.get("/api/status").headers
+
+
 def test_status(client):
     assert client.get("/api/status").json() == {
         "engine": "ready", "settings": {"steps": 6, "cfg": 2.0, "seed": 42}, "voice": False}
 
 
 def test_document_flow(client, doc_id):
-    # a extração roda em background task, que o TestClient conclui antes de devolver a resposta
+    # extraction runs as a background task, which TestClient finishes before returning the response
     meta = client.get(f"/api/docs/{doc_id}").json()
     assert meta["status"] == "ready" and meta["pages"] == 3 and meta["progress"] == 0
     assert client.post("/api/docs", files={"file": ("x.pdf", PDF)}).json() == {"id": doc_id, "status": "ready"}
@@ -62,33 +72,39 @@ def test_document_flow(client, doc_id):
     r = client.get(f"/api/docs/{doc_id}/audio/0")
     assert r.headers["content-type"] == "audio/ogg" and r.headers["cache-control"] == "no-store"
     wait_until(lambda: client.get(f"/api/docs/{doc_id}/audio/1").status_code == 410)
-    assert client.get(f"/api/docs/{doc_id}/audio/1").json() == {"detail": "falha ao gerar este trecho"}
+    assert client.get(f"/api/docs/{doc_id}/audio/1").json() == {"detail": "failed to generate this chunk"}
     assert client.get(f"/api/docs/{doc_id}/audio/99").status_code == 202
     wait_until(lambda: client.get(f"/api/docs/{doc_id}/pages/2").json()["ready"] == [2])
     assert client.get("/api/docs").json()[0]["progress"] == 0
 
 
-@pytest.mark.parametrize("method, path, kwargs, status, detail", [
-    ("post", "/api/docs", {"files": {"file": ("x.txt", b"oi")}}, 400, "arquivo não é um PDF"),
-    ("get", "/api/docs/nada", {}, 404, "documento não encontrado"),
-    ("post", "/api/exports", {"json": {"text": " "}}, 400, "texto vazio"),
-    ("get", "/api/exports/nada/audio", {}, 404, "áudio não disponível"),
-    ("delete", "/api/exports/nada", {}, 404, "não encontrado"),
-    ("post", "/api/voice", {"files": {"file": ("v.wav", b"lixo")}}, 400,
-     "formato de áudio não suportado (use wav, flac, ogg ou mp3)"),
+@pytest.mark.parametrize("method, path, kwargs, status, code, detail", [
+    ("post", "/api/docs", {"files": {"file": ("x.txt", b"oi")}}, 400, "not_pdf", "file is not a PDF"),
+    ("get", "/api/docs/nada", {}, 404, "doc_not_found", "document not found"),
+    ("post", "/api/exports", {"json": {"text": " "}}, 400, "text_empty", "empty text"),
+    ("get", "/api/exports/nada/audio", {}, 404, "audio_unavailable", "audio not available"),
+    ("delete", "/api/exports/nada", {}, 404, "export_not_found", "export not found"),
+    ("post", "/api/voice", {"files": {"file": ("v.wav", b"lixo")}}, 400, "audio_unsupported",
+     "unsupported audio format (use wav, flac, ogg or mp3)"),
 ])
-def test_domain_errors_become_http_errors(client, method, path, kwargs, status, detail):
+def test_domain_errors_become_http_errors(client, method, path, kwargs, status, code, detail):
     r = getattr(client, method)(path, **kwargs)
-    assert (r.status_code, r.json()) == (status, {"detail": detail})
+    assert (r.status_code, r.json()) == (status, {"detail": detail, "code": code, "params": {}})
+
+
+def test_error_params_are_returned_for_interpolation(client):
+    r = client.post("/api/exports", json={"text": "a" * 50_001})
+    assert r.status_code == 400
+    assert r.json()["code"] == "text_too_long" and r.json()["params"] == {"max": 50_000}
 
 
 def test_page_errors(client, doc_id, container, tmp_path):
     assert client.get(f"/api/docs/{doc_id}/pages/9").status_code == 404
     folder = tmp_path / "docs" / "emprocesso"
     folder.mkdir()
-    (folder / "meta.json").write_text(json.dumps({"id": "emprocesso", "status": "extracting"}))
+    (folder / "meta.json").write_text(json.dumps({"id": "emprocesso", "status": "extracting"}), encoding="utf-8")
     r = client.get("/api/docs/emprocesso/pages/0")
-    assert (r.status_code, r.json()) == (409, {"detail": "documento ainda em processamento"})
+    assert (r.status_code, r.json()) == (409, {"detail": "document is still being processed", "code": "doc_processing", "params": {}})
 
 
 def test_unmapped_app_error_is_500(container):
@@ -96,11 +112,11 @@ def test_unmapped_app_error_is_500(container):
 
     @app.get("/boom")
     def boom():
-        raise AppError("falhou")
+        raise AppError("boom", "failed")
 
     with TestClient(app) as c:
         r = c.get("/boom")
-    assert (r.status_code, r.json()) == (500, {"detail": "falhou"})
+    assert (r.status_code, r.json()) == (500, {"detail": "failed", "code": "boom", "params": {}})
 
 
 def test_settings_and_voice(client):

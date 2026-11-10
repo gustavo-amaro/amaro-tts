@@ -1,4 +1,4 @@
-"""Abstração do modelo de TTS e implementação com VoxCPM2 na GPU Intel (XPU)."""
+"""TTS model abstraction and its VoxCPM2 implementation on Intel GPUs (XPU)."""
 import sys
 import time
 from pathlib import Path
@@ -17,7 +17,7 @@ class Synthesizer(Protocol):
 
 
 def patch_xpu():
-    """VoxCPM só conhece cuda/mps/cpu; força a XPU (Intel Arc) quando disponível."""
+    """VoxCPM only knows cuda/mps/cpu; force XPU (Intel Arc) when available."""
     import voxcpm.model.voxcpm2 as vx2
 
     def _resolve(device, configured_device="cuda"):
@@ -41,7 +41,7 @@ class VoxCPMSynthesizer:
         t0 = time.time()
         self._model = VoxCPM.from_pretrained(self.model_id, load_denoiser=False, optimize=False)
         self.sample_rate = self._model.tts_model.sample_rate
-        print(f"[engine] modelo carregado em {time.time() - t0:.0f}s", file=sys.stderr)
+        print(f"[engine] model loaded in {time.time() - t0:.0f}s", file=sys.stderr)
 
     def generate(self, text: str, settings: dict, voice: Path | None) -> np.ndarray:
         torch.manual_seed(settings["seed"])

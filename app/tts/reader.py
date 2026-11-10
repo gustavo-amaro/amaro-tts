@@ -1,4 +1,4 @@
-"""Leitura em voz alta: gera áudio à frente do cursor e mantém o cache de trechos em disco."""
+"""Read-aloud: generates audio ahead of the cursor and keeps the chunk cache on disk."""
 import os
 import threading
 import time
@@ -11,10 +11,10 @@ from ..events import Publisher
 from .config import SynthesisConfig
 from .worker import Task
 
-LOOKAHEAD = 8  # trechos gerados à frente do cursor (~1,5 min de áudio)
-URGENT_AHEAD = 2  # trechos do leitor que passam na frente das exportações
+LOOKAHEAD = 8  # chunks generated ahead of the cursor (~1.5 min of audio)
+URGENT_AHEAD = 2  # reader chunks that jump ahead of exports
 CACHE_LIMIT_BYTES = 2 * 1024**3
-CACHE_CHECK_EVERY = 20  # gravações entre verificações do limite do cache
+CACHE_CHECK_EVERY = 20  # saves between cache-limit checks
 
 
 class ReaderTask(Task):
@@ -43,7 +43,7 @@ class ReaderQueue:
         self._failed: set[tuple[str, str, int]] = set()
         self._saves = 0
 
-    # ---------- consulta ----------
+    # ---------- queries ----------
     def audio_path(self, doc_id: str, idx: int, key: str | None = None) -> Path:
         return self._docs_dir / doc_id / "audio" / (key or self._config.key()) / f"{idx}.ogg"
 
@@ -56,14 +56,14 @@ class ReaderQueue:
     def ready_ahead(self, doc_id: str, cursor: int, limit: int = LOOKAHEAD * 2) -> list[int]:
         return [i for i in range(cursor, cursor + limit) if self.is_ready(doc_id, i)]
 
-    # ---------- agendamento ----------
+    # ---------- scheduling ----------
     def set_cursor(self, doc_id: str, texts: list[str], cursor: int):
         with self._wakeup:
             self._job = {"doc_id": doc_id, "texts": texts, "cursor": cursor}
             self._wakeup.notify_all()
 
     def next_task(self, ahead: int) -> ReaderTask | None:
-        """Primeiro trecho sem áudio entre o cursor e cursor+ahead. Chamado com `wakeup` adquirido."""
+        """First chunk without audio between cursor and cursor+ahead. Called with `wakeup` held."""
         job = self._job
         if not job:
             return None
@@ -76,7 +76,7 @@ class ReaderQueue:
                 return ReaderTask(self, doc_id, i, texts[i], key, self._config.snapshot(), self._config.voice())
         return None
 
-    # ---------- resultados ----------
+    # ---------- results ----------
     def save(self, task: ReaderTask, wav: np.ndarray, sample_rate: int):
         path = self.audio_path(task.doc_id, task.idx, task.key)
         path.parent.mkdir(parents=True, exist_ok=True)

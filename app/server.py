@@ -1,4 +1,4 @@
-"""Servidor web do leitor de PDF.  Rodar: .venv/bin/uvicorn app.server:app --port 8000"""
+"""AmaroTTS web server.  Run: .venv/bin/uvicorn app.server:app --port 8000"""
 import asyncio
 from contextlib import asynccontextmanager
 
@@ -25,7 +25,17 @@ def create_app(c: Container) -> FastAPI:
 
     @app.exception_handler(AppError)
     async def app_error(_request: Request, exc: AppError):
-        return JSONResponse({"detail": str(exc)}, status_code=ERROR_STATUS.get(type(exc), 500))
+        body = {"detail": str(exc), "code": exc.code, "params": exc.params}
+        return JSONResponse(body, status_code=ERROR_STATUS.get(type(exc), 500))
+
+    @app.middleware("http")
+    async def revalidate_ui(request: Request, call_next):
+        # without Cache-Control, browsers cache static files heuristically and keep running an old UI
+        # after an update; "no-cache" makes them revalidate (ETag -> cheap 304 when unchanged)
+        response = await call_next(request)
+        if request.url.path == "/" or request.url.path.startswith("/static/"):
+            response.headers.setdefault("Cache-Control", "no-cache")
+        return response
 
     for module in (system, documents, exports):
         app.include_router(module.create_router(c))

@@ -4,54 +4,67 @@ const $$ = (sel) => document.querySelectorAll(sel);
 const state = {
   docId: null,
   meta: null,
-  cur: 0,            // trecho atual
+  cur: 0,            // current chunk
   playing: false,
-  waiting: false,    // tocando, mas o trecho atual ainda não foi gerado
-  pages: new Map(),  // cache de páginas carregadas
-  page: -1,          // página renderizada
+  waiting: false,    // playing, but the current chunk has not been generated yet
+  pages: new Map(),  // cache of loaded pages
+  page: -1,          // rendered page
   ready: new Set(),
   failed: new Set(),
   durations: {},
   events: null,
+  engine: "loading",
 };
 
-// dois elementos de áudio alternados: um toca, o outro já carrega o próximo trecho
+// two alternating audio elements: one plays while the other preloads the next chunk
 const players = [new Audio(), new Audio()];
 let active = 0;
-let preloaded = null; // id do trecho carregado em players[1 - active]
+let preloaded = null; // id of the chunk loaded in players[1 - active]
 players.forEach((p) => { p.preload = "auto"; p.addEventListener("ended", onEnded); });
 
 const audioUrl = (id) => `/api/docs/${state.docId}/audio/${id}`;
 
+// API errors carry a stable `code` (an i18n key under "errors.") plus `params`; `detail` is the English fallback
+function errorMessage(body, status) {
+  if (body && body.code) return t(`errors.${body.code}`, body.params || {});
+  if (body && typeof body.detail === "string") return body.detail;
+  return t("errors.generic", { status });
+}
+
 async function api(path, opts = {}) {
   const res = await fetch(path, opts);
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+  if (!res.ok) throw new Error(errorMessage(await res.json().catch(() => null), res.status));
   return res.json();
 }
 const postJson = (path, body) =>
   api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-// ---------------- motor ----------------
+// ---------------- engine ----------------
 function setEngine(status) {
+  state.engine = status;
   const el = $("engine-status");
   el.className = "engine " + status;
-  el.querySelector("span").textContent =
-    { loading: "Carregando modelo…", ready: "VoxCPM2 pronto", error: "Erro ao carregar modelo" }[status] || status;
+  el.querySelector("span").textContent = ["loading", "ready", "error"].includes(status) ? t(`engine.${status}`) : status;
+}
+
+function renderVoice(hasVoice) {
+  $$(".voice-label").forEach((el) => { el.textContent = t(hasVoice ? "settings.voiceCustom" : "settings.voiceDefault"); });
+  $$(".voice-clear").forEach((el) => { el.hidden = !hasVoice; });
 }
 
 async function refreshStatus() {
   const s = await api("/api/status");
   setEngine(s.engine);
   state.settings = s.settings;
+  state.voice = s.voice;
   $$(".quality").forEach((el) => { el.value = String(s.settings.steps); });
-  $$(".voice-label").forEach((el) => { el.textContent = s.voice ? "Voz: personalizada" : "Voz: padrão"; });
-  $$(".voice-clear").forEach((el) => { el.hidden = !s.voice; });
+  renderVoice(s.voice);
   updateEstimate();
   if (s.engine === "loading") setTimeout(refreshStatus, 3000);
   return s;
 }
 
-// ---------------- telas ----------------
+// ---------------- screens ----------------
 function showScreen(name) {
   for (const id of ["home", "reader", "tts"]) $(id).hidden = id !== name;
   $("player").hidden = name !== "reader";
@@ -64,19 +77,26 @@ function leaveReader() {
   if (state.events) state.events.close();
 }
 
+const emptyItem = (key) => `<li class="empty">${t(key)}</li>`;
+
 async function showHome() {
   leaveReader();
   showScreen("home");
+  await loadDocs();
+}
+
+async function loadDocs() {
   const docs = await api("/api/docs");
   const list = $("doclist");
   list.innerHTML = "";
-  if (!docs.length) list.innerHTML = '<li class="empty">Nenhum documento ainda.</li>';
+  if (!docs.length) list.innerHTML = emptyItem("home.empty");
   for (const d of docs) {
     const li = document.createElement("li");
     const pct = d.chunks ? Math.round((100 * d.progress) / d.chunks) : 0;
-    const info = d.status === "ready" ? `${d.pages} páginas · ${pct}% lido` : d.status;
-    li.innerHTML = `<a href="#doc=${d.id}"><span></span><small>${info}</small></a>`;
+    const info = d.status === "ready" ? t("home.docInfo", { count: d.pages, pct }) : t(`doc.status.${d.status}`);
+    li.innerHTML = `<a href="#doc=${d.id}"><span></span><small></small></a>`;
     li.querySelector("span").textContent = d.name;
+    li.querySelector("small").textContent = info;
     list.appendChild(li);
   }
 }
@@ -92,15 +112,24 @@ function uploadPdf(file) {
   xhr.upload.onprogress = (e) => { bar.firstElementChild.style.width = `${(100 * e.loaded) / e.total}%`; };
   xhr.onload = () => {
     bar.hidden = true;
-    if (xhr.status !== 200) return alertStatus(JSON.parse(xhr.responseText).detail);
-    location.hash = `doc=${JSON.parse(xhr.responseText).id}`;
+    let body = null;
+    try { body = JSON.parse(xhr.responseText); } catch { /* not JSON */ }
+    if (xhr.status !== 200) return alertStatus(errorMessage(body, xhr.status));
+    location.hash = `doc=${body.id}`;
   };
   xhr.send(fd);
 }
 
 function alertStatus(msg) { $("status").textContent = msg; console.warn(msg); }
 
-// ---------------- leitor ----------------
+// ---------------- reader ----------------
+function pageMessage(text) {
+  const p = document.createElement("p");
+  p.className = "empty";
+  p.textContent = text;
+  $("page").replaceChildren(p);
+}
+
 async function openDoc(docId) {
   stop();
   state.docId = docId;
@@ -111,19 +140,19 @@ async function openDoc(docId) {
   let meta = await api(`/api/docs/${docId}`);
   $("doc-title").textContent = meta.name;
   while (meta.status === "extracting") {
-    $("page").innerHTML = '<p class="empty">Extraindo texto do PDF…</p>';
+    pageMessage(t("doc.extracting"));
     await new Promise((r) => setTimeout(r, 700));
     meta = await api(`/api/docs/${docId}`);
   }
   if (meta.status !== "ready") {
-    $("page").innerHTML = `<p class="empty">Não foi possível ler o PDF: ${meta.error || meta.status}</p>`;
+    pageMessage(t("doc.readFailed", { error: meta.error || meta.status }));
     return;
   }
   state.meta = meta;
   $("page-total").textContent = meta.pages;
   $("page-input").max = meta.pages;
   if (!meta.chunks) {
-    $("page").innerHTML = '<p class="empty">Nenhum texto encontrado (PDF escaneado? precisaria de OCR).</p>';
+    pageMessage(t("doc.noText"));
     return;
   }
   await goTo(meta.progress || 0, false);
@@ -137,12 +166,12 @@ function subscribe(docId) {
     if (ev.type === "engine") setEngine(ev.status);
     else if (ev.type === "chunk_ready") onChunkReady(ev.id, ev.duration);
     else if (ev.type === "chunk_error") onChunkFailed(ev.id);
-    else if (ev.type === "generating" && state.waiting && ev.id === state.cur) setStatus("Gerando áudio deste trecho…");
+    else if (ev.type === "generating" && state.waiting && ev.id === state.cur) setStatus(t("player.generatingCurrent"));
   };
   state.events = es;
 }
 
-// página que contém o trecho: maior p com page_first[p] <= id
+// page that contains the chunk: largest p with page_first[p] <= id
 function pageOf(id) {
   const pf = state.meta.page_first;
   let lo = 0, hi = pf.length - 1;
@@ -169,7 +198,7 @@ async function renderPage(n) {
   const root = $("page");
   root.innerHTML = "";
   if (!p.chunks.length) {
-    root.innerHTML = '<p class="empty">Página sem texto.</p>';
+    pageMessage(t("doc.emptyPage"));
     return;
   }
   let pos = 0;
@@ -184,7 +213,7 @@ async function renderPage(n) {
   }
   if (pos < p.text.length) root.append(p.text.slice(pos));
   decorate();
-  // pré-carrega a próxima página para a virada ser instantânea
+  // preload the next page so turning it is instant
   if (n + 1 < state.meta.pages) loadPage(n + 1).catch(() => {});
 }
 
@@ -207,7 +236,7 @@ function scrollToCurrent() {
   if (r.top < 80 || r.bottom > bottomLimit) span.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-// move o cursor para o trecho `id`; se `play`, começa a tocar
+// move the cursor to chunk `id`; if `play`, start playing
 async function goTo(id, play = state.playing) {
   id = Math.max(0, Math.min(id, state.meta.chunks - 1));
   state.cur = id;
@@ -223,6 +252,10 @@ async function goTo(id, play = state.playing) {
   else updateBuffer();
 }
 
+function waitingStatus() {
+  return engineReady() ? t("player.generatingCurrent") : t("player.waitingModel");
+}
+
 function playCurrent() {
   state.playing = true;
   $("play").textContent = "⏸";
@@ -231,13 +264,13 @@ function playCurrent() {
   if (!state.ready.has(id)) {
     state.waiting = true;
     players[active].pause();
-    setStatus(engineReady() ? "Gerando áudio deste trecho…" : "Aguardando o modelo carregar…");
+    setStatus(waitingStatus());
     return;
   }
   state.waiting = false;
   const other = 1 - active;
   if (preloaded === id) {
-    active = other; // o próximo já estava carregado no outro player
+    active = other; // the next chunk was already loaded in the other player
   } else {
     players[active].src = audioUrl(id);
   }
@@ -245,7 +278,7 @@ function playCurrent() {
   players[1 - active].pause();
   const p = players[active];
   p.playbackRate = p.defaultPlaybackRate = +$("speed").value;
-  p.play().catch((e) => alertStatus("Clique em ▶ para tocar (" + e.message + ")"));
+  p.play().catch((e) => alertStatus(t("player.clickToPlay", { error: e.message })));
   preloadNext();
   updateBuffer();
 }
@@ -267,7 +300,8 @@ function onEnded(e) {
 function advance() {
   if (state.cur + 1 >= state.meta.chunks) {
     stop();
-    setStatus("Fim do documento.");
+    state.ended = true;
+    setStatus(t("player.end"));
     return;
   }
   goTo(state.cur + 1, true);
@@ -291,7 +325,7 @@ function togglePlay() {
   if (!state.meta) return;
   if (state.playing) return pause();
   const p = players[active];
-  // retoma do ponto pausado se o mesmo trecho ainda está carregado
+  // resume from the paused position if the same chunk is still loaded
   if (p.src && p.src.endsWith(`/audio/${state.cur}`) && !p.ended && p.currentTime > 0) {
     state.playing = true;
     $("play").textContent = "⏸";
@@ -320,17 +354,28 @@ function onChunkFailed(id) {
   if (state.waiting && id === state.cur) advance();
 }
 
-const engineReady = () => $("engine-status").classList.contains("ready");
+const engineReady = () => state.engine === "ready";
 
 function setStatus(text) { $("status").textContent = text; }
 
 function updateBuffer() {
   if (state.waiting || !state.meta) return;
+  state.ended = false;
   let n = 0, secs = 0;
   for (let i = state.cur + 1; state.ready.has(i); i++) { n++; secs += state.durations[i] || 0; }
-  const ahead = n ? `${n} trecho${n > 1 ? "s" : ""} pronto${n > 1 ? "s" : ""} à frente` + (secs ? ` (~${Math.round(secs)} s)` : "") : "gerando os próximos trechos…";
-  const where = `Trecho ${state.cur + 1} de ${state.meta.chunks}`;
-  setStatus(state.playing ? `${where} · ${ahead}` : `${where} · pausado`);
+  const ahead = n
+    ? t("player.ahead", { count: n }) + (secs ? " " + t("player.aheadSeconds", { seconds: Math.round(secs) }) : "")
+    : t("player.generatingNext");
+  const where = t("player.position", { current: state.cur + 1, total: state.meta.chunks });
+  setStatus(`${where} · ${state.playing ? ahead : t("player.paused")}`);
+}
+
+// re-render the status line in the current language
+function refreshPlayerStatus() {
+  if (!state.meta) return;
+  if (state.waiting) setStatus(waitingStatus());
+  else if (state.ended) setStatus(t("player.end"));
+  else updateBuffer();
 }
 
 function updateProgress() {
@@ -343,7 +388,7 @@ function goToPage(n) {
   goTo(state.meta.page_first[n]);
 }
 
-// ---------------- eventos da interface ----------------
+// ---------------- UI events ----------------
 $("file").addEventListener("change", (e) => uploadPdf(e.target.files[0]));
 const drop = $("drop");
 drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
@@ -363,7 +408,7 @@ $("page").addEventListener("click", (e) => {
 $("speed").addEventListener("change", (e) => players.forEach((p) => { p.playbackRate = p.defaultPlaybackRate = +e.target.value; }));
 
 async function settingsChanged() {
-  // o cache de áudio depende das configurações: recomeça a partir do trecho atual
+  // the audio cache depends on the settings: start over from the current chunk
   const wasPlaying = state.playing;
   stop();
   state.ready = new Set();
@@ -398,17 +443,17 @@ $$(".voice-clear").forEach((el) => { el.onclick = async () => {
   await settingsChanged();
 }; });
 
-// ---------------- texto para áudio ----------------
-const CHARS_PER_SEC = 16.5; // medido: ~200 caracteres ≈ 12 s de fala
-const fmtTime = (secs) => (secs < 60 ? `${Math.round(secs)} s` : `${Math.round(secs / 60)} min`);
+// ---------------- text to audio ----------------
+const CHARS_PER_SEC = 16.5; // measured: ~200 characters ≈ 12 s of speech
+const fmtTime = (secs) => (secs < 60 ? t("time.seconds", { n: Math.round(secs) }) : t("time.minutes", { n: Math.round(secs / 60) }));
 
 function updateEstimate() {
   const n = $("tts-text").value.trim().length;
-  $("tts-count").textContent = `${n.toLocaleString("pt-BR")} caracteres`;
+  $("tts-count").textContent = t("tts.chars", { count: n });
   if (!n) { $("tts-estimate").textContent = ""; return; }
   const audio = n / CHARS_PER_SEC;
   const rtf = state.settings && state.settings.steps >= 10 ? 1.1 : 0.8;
-  $("tts-estimate").textContent = `~${fmtTime(audio)} de áudio · ~${fmtTime(audio * rtf)} para gerar`;
+  $("tts-estimate").textContent = t("tts.estimate", { audio: fmtTime(audio), generate: fmtTime(audio * rtf) });
 }
 
 function showTtsError(msg) {
@@ -427,15 +472,17 @@ async function loadExports() {
   const jobs = await api("/api/exports");
   const list = $("exports");
   list.innerHTML = "";
-  if (!jobs.length) list.innerHTML = '<li class="empty">Nenhum áudio gerado ainda.</li>';
+  if (!jobs.length) list.innerHTML = emptyItem("tts.empty");
   for (const job of jobs) list.appendChild(renderExport(job));
 }
+
+const progressText = (done, total) => t("tts.progress", { done, total, pct: Math.round((100 * done) / total) });
 
 function renderExport(job) {
   const li = document.createElement("li");
   li.dataset.job = job.id;
-  const when = new Date(job.created * 1000).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-  const voice = job.voice ? "voz personalizada" : "voz padrão";
+  const when = i18n.date(new Date(job.created * 1000), { dateStyle: "short", timeStyle: "short" });
+  const voice = t(job.voice ? "tts.voiceCustom" : "tts.voiceDefault");
   li.innerHTML = `
     <div class="exp-head"><span class="exp-title"></span><span class="exp-info"></span></div>
     <div class="exp-body"></div>`;
@@ -456,21 +503,21 @@ function renderExport(job) {
     const dl = document.createElement("a");
     dl.className = "download";
     dl.href = `/api/exports/${job.id}/audio?download=1`;
-    dl.textContent = "Baixar MP3";
-    del.textContent = "apagar";
+    dl.textContent = t("tts.download");
+    del.textContent = t("tts.delete");
     body.append(audio, dl, del);
   } else if (job.status === "error") {
     info.textContent = when;
     const err = document.createElement("span");
     err.className = "exp-error";
-    err.textContent = `Falhou: ${job.error}`;
-    del.textContent = "apagar";
+    err.textContent = t("tts.failed", { error: job.error });
+    del.textContent = t("tts.delete");
     body.append(err, del);
   } else {
     const pct = Math.round((100 * job.done) / job.total);
-    info.textContent = job.done ? `gerando · ${job.done}/${job.total} trechos (${pct}%)` : "na fila…";
+    info.textContent = job.done ? progressText(job.done, job.total) : t("tts.queued");
     body.innerHTML = `<div class="bar"><div style="width:${pct}%"></div></div>`;
-    del.textContent = "cancelar";
+    del.textContent = t("tts.cancel");
     body.append(del);
   }
   return li;
@@ -479,10 +526,9 @@ function renderExport(job) {
 function onExportEvent(ev) {
   const li = document.querySelector(`#exports li[data-job="${ev.job}"]`);
   if (ev.type === "export_progress" && li) {
-    const pct = Math.round((100 * ev.done) / ev.total);
-    li.querySelector(".exp-info").textContent = `gerando · ${ev.done}/${ev.total} trechos (${pct}%)`;
+    li.querySelector(".exp-info").textContent = progressText(ev.done, ev.total);
     const bar = li.querySelector(".bar div");
-    if (bar) bar.style.width = `${pct}%`;
+    if (bar) bar.style.width = `${Math.round((100 * ev.done) / ev.total)}%`;
   } else if ((ev.type === "export_done" || ev.type === "export_error") && !$("tts").hidden) {
     loadExports();
   }
@@ -493,7 +539,7 @@ $("tts-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   showTtsError("");
   const text = $("tts-text").value.trim();
-  if (!text) return showTtsError("Digite ou cole algum texto.");
+  if (!text) return showTtsError(t("tts.emptyText"));
   $("tts-submit").disabled = true;
   try {
     await postJson("/api/exports", { text, style: $("tts-style").value });
@@ -505,13 +551,6 @@ $("tts-form").addEventListener("submit", async (e) => {
   }
 });
 
-const exportEvents = new EventSource("/api/exports/events");
-exportEvents.onmessage = (msg) => {
-  const ev = JSON.parse(msg.data);
-  if (ev.type === "engine") setEngine(ev.status);
-  else onExportEvent(ev);
-};
-
 document.addEventListener("keydown", (e) => {
   if (!state.meta || $("reader").hidden || e.target.matches("input, select, textarea")) return;
   if (e.code === "Space") { e.preventDefault(); togglePlay(); }
@@ -519,12 +558,44 @@ document.addEventListener("keydown", (e) => {
   else if (e.code === "ArrowLeft") goTo(state.cur - 1);
 });
 
+// ---------------- language ----------------
+function setupLanguagePicker() {
+  const select = $("lang");
+  for (const [code, name] of Object.entries(i18n.locales)) select.add(new Option(name, code));
+  select.value = i18n.locale;
+  select.addEventListener("change", () => i18n.setLocale(select.value));
+}
+
+// static markup is handled by i18n.translate(); re-render what JS generated
+function onLocaleChange() {
+  $("lang").value = i18n.locale;
+  setEngine(state.engine);
+  renderVoice(state.voice);
+  updateEstimate();
+  refreshPlayerStatus();
+  if (!$("tts-error").hidden) showTtsError("");
+  if (!$("home").hidden) loadDocs();
+  if (!$("tts").hidden) loadExports();
+}
+
+// ---------------- boot ----------------
 function route() {
   const m = location.hash.match(/doc=([0-9a-f]+)/);
   if (m) openDoc(m[1]).catch((e) => { alertStatus(e.message); showHome(); });
   else if (location.hash === "#tts") showTts();
   else showHome();
 }
-window.addEventListener("hashchange", route);
-refreshStatus();
-route();
+
+i18n.init().catch((e) => console.warn("i18n:", e)).finally(() => {
+  setupLanguagePicker();
+  document.addEventListener("localechange", onLocaleChange);
+  const exportEvents = new EventSource("/api/exports/events");
+  exportEvents.onmessage = (msg) => {
+    const ev = JSON.parse(msg.data);
+    if (ev.type === "engine") setEngine(ev.status);
+    else onExportEvent(ev);
+  };
+  window.addEventListener("hashchange", route);
+  refreshStatus();
+  route();
+});

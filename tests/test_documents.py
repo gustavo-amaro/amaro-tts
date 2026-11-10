@@ -62,7 +62,7 @@ def ready_doc(service, content=PDF):
     return doc_id
 
 
-# ---------- repositório ----------
+# ---------- repository ----------
 def test_repository_missing_files(repo):
     assert not repo.exists("x")
     with pytest.raises(NotFound):
@@ -85,7 +85,7 @@ def test_repository_roundtrip(repo):
     assert repo.all_metas() == [{"id": "d", "name": "ç"}]
 
 
-# ---------- upload e extração ----------
+# ---------- upload and extraction ----------
 def test_upload_rejects_non_pdf(service):
     with pytest.raises(InvalidInput):
         service.upload("x.txt", b"texto")
@@ -95,13 +95,13 @@ def test_upload_new_pdf(service, repo):
     result = service.upload(None, PDF)
     assert result["status"] == "extracting" and len(result["id"]) == 16
     meta = repo.read_meta(result["id"])
-    assert meta["name"] == "documento.pdf" and meta["status"] == "extracting"
+    assert meta["name"] == "document.pdf" and meta["status"] == "extracting"
     assert repo.pdf_path(result["id"]).read_bytes() == PDF
 
 
 def test_upload_same_pdf_is_deduplicated_once_ready(service):
     first = service.upload("a.pdf", PDF)
-    assert service.upload("a.pdf", PDF) == first  # ainda extraindo: extrai de novo
+    assert service.upload("a.pdf", PDF) == first  # still extracting: extract again
     service.extract(first["id"])
     assert service.upload("b.pdf", PDF) == {"id": first["id"], "status": "ready"}
 
@@ -125,7 +125,7 @@ def test_extract_failure(service, repo, publish):
     assert publish.of(doc_id, "extract_error") == [{"type": "extract_error", "error": "pdf corrompido"}]
 
 
-# ---------- leitura ----------
+# ---------- reading ----------
 def test_list_sorted_by_last_opened(service, repo, monkeypatch):
     a = ready_doc(service, PDF + b"a")
     b = ready_doc(service, PDF + b"b")

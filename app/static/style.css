@@ -26,6 +26,8 @@ button, select, input { font: inherit; color: inherit; }
 }
 .brand { font-family: var(--serif); font-weight: 600; font-size: 20px; color: var(--ink); text-decoration: none; }
 .brand span { color: var(--accent); }
+.brand b { font-weight: inherit; }
+.lang { padding: 4px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-size: 13px; color: var(--muted); }
 .engine { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
 .engine i { width: 8px; height: 8px; border-radius: 50%; background: #d9a400; animation: pulse 1.2s infinite; }
 .engine.ready i { background: #3a9b5c; animation: none; }

@@ -1,8 +1,8 @@
-"""Roda o VoxCPM2 na Intel Arc (XPU) via monkeypatch do seletor de device.
+"""Runs VoxCPM2 on Intel Arc (XPU) by monkeypatching the device selector.
 
-Uso:
-  .venv/bin/python tts.py "Texto a falar" -o saida.wav
-  .venv/bin/python tts.py "Texto" --ref minha_voz.wav -o clone.wav
+Usage:
+  .venv/bin/python tts.py "Text to speak" -o output.wav
+  .venv/bin/python tts.py "Text" --ref my_voice.wav -o clone.wav
 """
 import argparse
 import sys
@@ -18,12 +18,12 @@ from voxcpm import VoxCPM  # noqa: E402
 
 
 def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("text")
-    p.add_argument("-o", "--output", default="out.wav")
-    p.add_argument("--ref", help="áudio de referência para clonar voz")
-    p.add_argument("--prompt-wav", help="áudio para clonagem 'ultimate'")
-    p.add_argument("--prompt-text", help="transcrição exata de --prompt-wav")
+    p = argparse.ArgumentParser(description="Synthesize speech with VoxCPM2.")
+    p.add_argument("text", help="text to speak")
+    p.add_argument("-o", "--output", default="out.wav", help="output WAV file")
+    p.add_argument("--ref", help="reference audio for voice cloning")
+    p.add_argument("--prompt-wav", help="audio for 'ultimate' cloning")
+    p.add_argument("--prompt-text", help="exact transcript of --prompt-wav")
     p.add_argument("--cfg", type=float, default=2.0)
     p.add_argument("--steps", type=int, default=10)
     p.add_argument("--seed", type=int, default=42)
@@ -43,7 +43,7 @@ def main():
         inference_timesteps=args.steps,
     )
     sf.write(args.output, wav, model.tts_model.sample_rate)
-    print(f"salvo: {args.output}", file=sys.stderr)
+    print(f"saved: {args.output}", file=sys.stderr)
 
 
 if __name__ == "__main__":

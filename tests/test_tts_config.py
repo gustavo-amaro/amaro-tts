@@ -16,14 +16,14 @@ def test_defaults_without_file(synthesis):
 
 
 def test_loads_persisted_settings(tmp_path, wakeup):
-    (tmp_path / "settings.json").write_text(json.dumps({"steps": 9}))
+    (tmp_path / "settings.json").write_text(json.dumps({"steps": 9}), encoding="utf-8")
     assert SynthesisConfig(tmp_path, wakeup).settings == {**DEFAULT_SETTINGS, "steps": 9}
 
 
 def test_update_persists_ignores_unknown_and_none_and_notifies(tmp_path, synthesis, wakeup):
     assert notifies(wakeup, lambda: synthesis.update(steps=10, cfg=None, bogus=1))
     assert synthesis.settings == {**DEFAULT_SETTINGS, "steps": 10}
-    assert json.loads((tmp_path / "settings.json").read_text()) == synthesis.settings
+    assert json.loads((tmp_path / "settings.json").read_text(encoding="utf-8")) == synthesis.settings
     assert synthesis.key().startswith("s10_")
 
 
@@ -54,4 +54,4 @@ def test_delete_voice(synthesis, wakeup):
     assert notifies(wakeup, synthesis.delete_voice)
     assert not synthesis.has_voice()
     assert synthesis.key().endswith("novoice")
-    synthesis.delete_voice()  # sem voz: não falha
+    synthesis.delete_voice()  # no voice: no error

@@ -2,7 +2,7 @@ from app.text.chunking import MAX_CHARS, TARGET_CHARS, _sentence_spans, chunk_pa
 
 
 def sentence(n: int) -> str:
-    """Frase com exatamente n caracteres, incluindo ". " no fim."""
+    """Sentence with exactly n characters, including the trailing ". "."""
     return "B" + "a" * (n - 3) + ". "
 
 
@@ -46,7 +46,7 @@ def test_chunk_paragraph_groups_short_sentences_up_to_target():
 
 
 def test_chunk_paragraph_merges_small_chunk_beyond_target():
-    text = (sentence(100) + sentence(200)).strip()  # 299 > TARGET, mas o 1º trecho é pequeno
+    text = (sentence(100) + sentence(200)).strip()  # 299 > TARGET, but the first chunk is small
     assert chunk_paragraph(text) == [(0, len(text))]
 
 

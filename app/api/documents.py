@@ -42,8 +42,8 @@ def create_router(c: Container) -> APIRouter:
         if path.exists():
             return FileResponse(path, media_type="audio/ogg", headers={"Cache-Control": "no-store"})
         if c.reader.is_failed(doc_id, chunk):
-            raise HTTPException(410, "falha ao gerar este trecho")
-        return Response(status_code=202)  # ainda não gerado
+            raise HTTPException(410, "failed to generate this chunk")
+        return Response(status_code=202)  # not generated yet
 
     @router.get("/{doc_id}/events")
     async def events(doc_id: str):

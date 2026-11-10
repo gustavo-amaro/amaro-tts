@@ -1,6 +1,6 @@
-"""Extração de texto de PDF e limpeza (cabeçalhos, hifenização, parágrafos).
+"""PDF text extraction and cleanup (headers, hyphenation, paragraphs).
 
-Teste avulso: .venv/bin/python -m app.text.pdf arquivo.pdf [n_trechos]
+Quick check: .venv/bin/python -m app.text.pdf file.pdf [n_chunks]
 """
 import re
 import sys
@@ -21,18 +21,18 @@ def _clean_block(text: str) -> str:
     for k, v in LIGATURES.items():
         text = text.replace(k, v)
     text = unicodedata.normalize("NFC", text)
-    text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)  # palavra hifenizada no fim da linha
+    text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)  # word hyphenated at the end of a line
     text = re.sub(r"\s*\n\s*", " ", text)
     return re.sub(r"[ \t ]+", " ", text).strip()
 
 
 def _signature(text: str) -> str:
-    """Forma normalizada para detectar cabeçalhos/rodapés repetidos (ignora números)."""
+    """Normalized form used to detect repeated headers/footers (ignores numbers)."""
     return re.sub(r"\d+", "#", text.lower())[:80]
 
 
 def extract_blocks(path: str, progress=None) -> list[list[str]]:
-    """Retorna, por página, a lista de blocos de texto limpos."""
+    """Returns, per page, the list of cleaned text blocks."""
     pages = []
     with fitz.open(path) as doc:
         n = doc.page_count
@@ -48,7 +48,7 @@ def remove_headers(pages: list[list[str]]) -> list[list[str]]:
     n = len(pages)
     counts = Counter()
     for blocks in pages:
-        # só as bordas da página costumam ser cabeçalho/rodapé
+        # only the page edges tend to be headers/footers
         edge = {_signature(b) for b in blocks[:2] + blocks[-2:] if len(b) < 100}
         counts.update(edge)
     threshold = max(3, int(n * 0.3))
@@ -68,7 +68,7 @@ def remove_headers(pages: list[list[str]]) -> list[list[str]]:
 
 
 def merge_paragraphs(blocks: list[str]) -> list[str]:
-    """Junta blocos que continuam a mesma frase (bloco anterior sem pontuação final)."""
+    """Joins blocks that continue the same sentence (previous block has no final punctuation)."""
     paras = []
     for b in blocks:
         if paras and not re.search(r"[.!?…:\"”»)]$", paras[-1]) and b[:1].islower():
@@ -80,7 +80,7 @@ def merge_paragraphs(blocks: list[str]) -> list[str]:
 
 
 def build_document(path: str, progress=None) -> dict:
-    """Extrai e divide o PDF. Retorna {"pages": [{"text", "first", "last"}], "chunks": [...]}."""
+    """Extracts and splits the PDF. Returns {"pages": [{"text", "first", "last"}], "chunks": [...]}."""
     pages = remove_headers(extract_blocks(path, progress))
     out_pages, chunks = [], []
     for pno, blocks in enumerate(pages):
@@ -90,7 +90,7 @@ def build_document(path: str, progress=None) -> dict:
         offset = 0
         for para in paras:
             for s, e in chunk_paragraph(para):
-                # mantém offsets sem espaços nas bordas
+                # keep offsets free of surrounding whitespace
                 while s < e and para[s].isspace():
                     s += 1
                 while e > s and para[e - 1].isspace():
@@ -107,9 +107,9 @@ def build_document(path: str, progress=None) -> dict:
 if __name__ == "__main__":
     t0 = time.time()
     doc = build_document(sys.argv[1], lambda i, n: print(f"\r{i}/{n}", end="", file=sys.stderr))
-    print(f"\npáginas={len(doc['pages'])} trechos={len(doc['chunks'])} tempo={time.time() - t0:.1f}s")
+    print(f"\npages={len(doc['pages'])} chunks={len(doc['chunks'])} time={time.time() - t0:.1f}s")
     lens = [len(c["text"]) for c in doc["chunks"]]
     if lens:
-        print(f"chars: min={min(lens)} média={sum(lens) / len(lens):.0f} max={max(lens)}")
+        print(f"chars: min={min(lens)} mean={sum(lens) / len(lens):.0f} max={max(lens)}")
     for c in doc["chunks"][: int(sys.argv[2]) if len(sys.argv) > 2 else 8]:
         print(f"[p{c['page'] + 1}] {c['text']!r}")

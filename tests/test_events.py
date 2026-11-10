@@ -24,7 +24,7 @@ def test_publish_from_other_thread_reaches_only_channel_subscribers():
             assert await asyncio.wait_for(qa.get(), 1) == {"type": "x"}
             await asyncio.sleep(0)
             assert qb.empty()
-        bus.publish("a", {"type": "ninguém escuta"})  # sem assinantes: não falha
+        bus.publish("a", {"type": "nobody listens"})  # no subscribers: no error
         return bus
 
     bus = asyncio.run(main())
@@ -32,7 +32,7 @@ def test_publish_from_other_thread_reaches_only_channel_subscribers():
 
 
 def test_sse_stream_sends_heartbeat_events_and_unsubscribes(monkeypatch):
-    monkeypatch.setattr(sse, "HEARTBEAT_SECONDS", 0.01)
+    monkeypatch.setattr(sse, "HEARTBEAT_SECONDS", 0.05)  # > Windows clock resolution (~15 ms)
 
     async def main():
         bus = EventBus()
@@ -41,7 +41,7 @@ def test_sse_stream_sends_heartbeat_events_and_unsubscribes(monkeypatch):
         frames = [await it.__anext__()]
         bus.publish("d1", {"type": "chunk_ready", "id": 3})
         frames.append(await it.__anext__())
-        frames.append(await it.__anext__())  # sem eventos: heartbeat por timeout
+        frames.append(await it.__anext__())  # no events: heartbeat on timeout
         assert len(bus._subscribers["d1"]) == 1
         await it.aclose()
         assert bus._subscribers["d1"] == set()

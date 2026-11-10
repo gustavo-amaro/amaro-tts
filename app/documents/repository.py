@@ -1,4 +1,4 @@
-"""Persistência dos documentos: data/docs/<id>/{doc.pdf, meta.json, chunks.json, progress.json}."""
+"""Document storage: data/docs/<id>/{doc.pdf, meta.json, chunks.json, progress.json}."""
 import json
 from pathlib import Path
 
@@ -20,36 +20,36 @@ class DocumentRepository:
         self._folder(doc_id).mkdir(parents=True, exist_ok=True)
         self.pdf_path(doc_id).write_bytes(content)
 
-    # ---------- metadados ----------
+    # ---------- metadata ----------
     def exists(self, doc_id: str) -> bool:
         return (self._folder(doc_id) / "meta.json").exists()
 
     def read_meta(self, doc_id: str) -> dict:
         p = self._folder(doc_id) / "meta.json"
         if not p.exists():
-            raise NotFound("documento não encontrado")
-        return json.loads(p.read_text())
+            raise NotFound("doc_not_found", "document not found")
+        return json.loads(p.read_text(encoding="utf-8"))
 
     def write_meta(self, meta: dict):
-        (self._folder(meta["id"]) / "meta.json").write_text(json.dumps(meta, ensure_ascii=False))
+        (self._folder(meta["id"]) / "meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
 
     def all_metas(self) -> list[dict]:
-        return [json.loads(p.read_text()) for p in self._root.glob("*/meta.json")]
+        return [json.loads(p.read_text(encoding="utf-8")) for p in self._root.glob("*/meta.json")]
 
-    # ---------- conteúdo extraído ----------
+    # ---------- extracted content ----------
     def read_chunks(self, doc_id: str) -> dict:
         p = self._folder(doc_id) / "chunks.json"
         if not p.exists():
-            raise Conflict("documento ainda em processamento")
-        return json.loads(p.read_text())
+            raise Conflict("doc_processing", "document is still being processed")
+        return json.loads(p.read_text(encoding="utf-8"))
 
     def write_chunks(self, doc_id: str, data: dict):
-        (self._folder(doc_id) / "chunks.json").write_text(json.dumps(data, ensure_ascii=False))
+        (self._folder(doc_id) / "chunks.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
-    # ---------- progresso de leitura ----------
+    # ---------- reading progress ----------
     def read_progress(self, doc_id: str) -> int:
         p = self._folder(doc_id) / "progress.json"
-        return json.loads(p.read_text())["chunk"] if p.exists() else 0
+        return json.loads(p.read_text(encoding="utf-8"))["chunk"] if p.exists() else 0
 
     def write_progress(self, doc_id: str, chunk: int):
-        (self._folder(doc_id) / "progress.json").write_text(json.dumps({"chunk": chunk}))
+        (self._folder(doc_id) / "progress.json").write_text(json.dumps({"chunk": chunk}), encoding="utf-8")

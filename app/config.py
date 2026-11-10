@@ -1,9 +1,11 @@
-"""Caminhos e limites da aplicação."""
+"""Application paths and limits."""
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
-DATA_DIR = ROOT.parent / "data"
+# AMAROTTS_DATA_DIR lets a second instance (a demo, for example) keep its own library and settings
+DATA_DIR = Path(os.environ.get("AMAROTTS_DATA_DIR") or ROOT.parent / "data")
 DOCS_DIR = DATA_DIR / "docs"
 EXPORTS_DIR = DATA_DIR / "exports"
 

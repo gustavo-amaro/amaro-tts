@@ -1,4 +1,4 @@
-"""Estado do motor, configurações de síntese e voz de referência."""
+"""Engine status, synthesis settings and reference voice."""
 from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel
 

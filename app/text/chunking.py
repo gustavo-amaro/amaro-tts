@@ -1,4 +1,4 @@
-"""Divisão de texto em trechos curtos para TTS, respeitando frases."""
+"""Splits text into short TTS chunks along sentence boundaries."""
 import re
 
 TARGET_CHARS = 250
@@ -29,7 +29,7 @@ def _sentence_spans(text: str) -> list[tuple[int, int]]:
 
 
 def _split_long(text: str, start: int, end: int) -> list[tuple[int, int]]:
-    """Corta um trecho maior que MAX_CHARS em pontuação fraca, depois em espaços."""
+    """Cuts a span longer than MAX_CHARS at weak punctuation, then at spaces."""
     out = []
     while end - start > MAX_CHARS:
         window = text[start:start + MAX_CHARS]
@@ -65,7 +65,7 @@ def chunk_paragraph(text: str) -> list[tuple[int, int]]:
 
 
 def chunk_plain_text(text: str) -> tuple[list[str], list[int]]:
-    """Texto livre (parágrafos separados por linha em branco) -> (trechos, parágrafo de cada trecho)."""
+    """Free text (paragraphs separated by blank lines) -> (chunks, paragraph index of each chunk)."""
     texts, paras = [], []
     for pno, para in enumerate(p for p in re.split(r"\n\s*\n", text) if p.strip()):
         para = re.sub(r"\s+", " ", para).strip()

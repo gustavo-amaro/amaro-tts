@@ -10,7 +10,7 @@ HEARTBEAT_SECONDS = 15
 
 
 def sse_response(bus: EventBus, channel: str, heartbeat: Callable[[], dict]) -> StreamingResponse:
-    """Transmite os eventos do canal; sem eventos, envia `heartbeat()` periodicamente."""
+    """Streams the channel's events; when idle, sends `heartbeat()` periodically."""
 
     async def stream():
         with bus.subscribe(channel) as q:

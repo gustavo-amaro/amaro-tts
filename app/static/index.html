@@ -1,110 +1,111 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Leitor de PDF</title>
+  <title>AmaroTTS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 <body>
   <header class="topbar">
-    <a href="#" class="brand" id="home-link">Leitor<span>PDF</span></a>
+    <a href="#" class="brand" id="home-link"><b>Amaro</b><span>TTS</span></a>
     <nav class="tabs">
-      <a href="#" data-tab="home">Ler PDF</a>
-      <a href="#tts" data-tab="tts">Texto para áudio</a>
+      <a href="#" data-tab="home" data-i18n="nav.home">Read PDF</a>
+      <a href="#tts" data-tab="tts" data-i18n="nav.tts">Text to audio</a>
     </nav>
-    <div class="engine" id="engine-status"><i></i><span>Carregando modelo…</span></div>
+    <div class="engine" id="engine-status"><i></i><span data-i18n="engine.loading">Loading model…</span></div>
+    <select id="lang" class="lang" data-i18n-aria-label="app.language" data-i18n-title="app.language"></select>
   </header>
 
-  <!-- tela inicial -->
+  <!-- home screen -->
   <main id="home" class="home">
     <label class="drop" id="drop">
       <input type="file" id="file" accept="application/pdf" hidden>
-      <strong>Solte um PDF aqui</strong>
-      <span>ou clique para escolher</span>
+      <strong data-i18n="home.drop">Drop a PDF here</strong>
+      <span data-i18n="home.dropHint">or click to choose</span>
       <div class="bar" id="upload-bar" hidden><div></div></div>
     </label>
     <section>
-      <h2>Seus documentos</h2>
-      <ul class="doclist" id="doclist"><li class="empty">Nenhum documento ainda.</li></ul>
+      <h2 data-i18n="home.docs">Your documents</h2>
+      <ul class="doclist" id="doclist"><li class="empty" data-i18n="home.empty">No documents yet.</li></ul>
     </section>
   </main>
 
-  <!-- leitor -->
+  <!-- reader -->
   <main id="reader" class="reader" hidden>
     <div class="doc-head">
       <h1 id="doc-title"></h1>
       <nav class="pagenav">
-        <button id="prev-page" title="Página anterior">‹</button>
-        <span>p. <input id="page-input" type="number" min="1"> / <b id="page-total"></b></span>
-        <button id="next-page" title="Próxima página">›</button>
+        <button id="prev-page" data-i18n-title="reader.prevPage" data-i18n-aria-label="reader.prevPage">‹</button>
+        <span><span data-i18n="reader.pageShort">p.</span> <input id="page-input" type="number" min="1"> / <b id="page-total"></b></span>
+        <button id="next-page" data-i18n-title="reader.nextPage" data-i18n-aria-label="reader.nextPage">›</button>
       </nav>
     </div>
     <article id="page" class="page"></article>
   </main>
 
-  <!-- texto para áudio -->
+  <!-- text to audio -->
   <main id="tts" class="tts" hidden>
-    <h1>Texto para áudio</h1>
-    <p class="lead">Cole um texto e gere um MP3 com a voz configurada. Parágrafos separados por linha em branco ganham uma pausa maior.</p>
+    <h1 data-i18n="tts.title">Text to audio</h1>
+    <p class="lead" data-i18n="tts.lead">Paste some text and generate an MP3 with the configured voice. Paragraphs separated by a blank line get a longer pause.</p>
     <form id="tts-form">
-      <textarea id="tts-text" rows="12" placeholder="Cole ou digite o texto aqui…" maxlength="50000"></textarea>
-      <div class="tts-meta"><span id="tts-count">0 caracteres</span><span id="tts-estimate"></span></div>
-      <input id="tts-style" type="text" maxlength="120"
-             placeholder="Estilo (opcional): ex. tom calmo e acolhedor, um pouco mais lento">
+      <textarea id="tts-text" rows="12" data-i18n-placeholder="tts.placeholder" maxlength="50000"></textarea>
+      <div class="tts-meta"><span id="tts-count"></span><span id="tts-estimate"></span></div>
+      <input id="tts-style" type="text" maxlength="120" data-i18n-placeholder="tts.stylePlaceholder">
       <div class="tts-actions">
         <div class="opts">
-          <label class="voice" title="Áudio de referência (5–30 s) para clonar a voz">
+          <label class="voice" data-i18n-title="settings.voiceTitle">
             <input type="file" class="voice-file" accept="audio/*" hidden>
-            <span class="voice-label">Voz: padrão</span>
+            <span class="voice-label" data-i18n="settings.voiceDefault">Voice: default</span>
           </label>
-          <button type="button" class="voice-clear link" hidden>remover</button>
-          <label>Qualidade
+          <button type="button" class="voice-clear link" data-i18n="settings.voiceRemove" hidden>remove</button>
+          <label><span data-i18n="settings.quality">Quality</span>
             <select class="quality">
-              <option value="6">Rápida</option><option value="10">Alta</option>
+              <option value="6" data-i18n="settings.fast">Fast</option><option value="10" data-i18n="settings.high">High</option>
             </select>
           </label>
         </div>
-        <button type="submit" class="primary" id="tts-submit">Gerar áudio</button>
+        <button type="submit" class="primary" id="tts-submit" data-i18n="tts.submit">Generate audio</button>
       </div>
       <p class="form-error" id="tts-error" hidden></p>
     </form>
     <section>
-      <h2>Gerações</h2>
-      <ul class="exports" id="exports"><li class="empty">Nenhum áudio gerado ainda.</li></ul>
+      <h2 data-i18n="tts.history">Generations</h2>
+      <ul class="exports" id="exports"><li class="empty" data-i18n="tts.empty">No audio generated yet.</li></ul>
     </section>
   </main>
 
   <footer class="player" id="player" hidden>
     <div class="progress"><div id="doc-progress"></div></div>
     <div class="controls">
-      <button id="prev" title="Trecho anterior (←)">⏮</button>
-      <button id="play" class="play" title="Tocar / pausar (espaço)">▶</button>
-      <button id="next" title="Próximo trecho (→)">⏭</button>
-      <div class="status" id="status">Pronto</div>
+      <button id="prev" data-i18n-title="player.prev" data-i18n-aria-label="player.prev">⏮</button>
+      <button id="play" class="play" data-i18n-title="player.play" data-i18n-aria-label="player.play">▶</button>
+      <button id="next" data-i18n-title="player.next" data-i18n-aria-label="player.next">⏭</button>
+      <div class="status" id="status" data-i18n="player.ready">Ready</div>
       <div class="opts">
-        <label>Velocidade
+        <label><span data-i18n="player.speed">Speed</span>
           <select id="speed">
             <option>0.8</option><option selected>1</option><option>1.15</option>
             <option>1.25</option><option>1.5</option><option>1.75</option><option>2</option>
           </select>
         </label>
-        <label>Qualidade
+        <label><span data-i18n="settings.quality">Quality</span>
           <select class="quality">
-            <option value="6">Rápida</option><option value="10">Alta</option>
+            <option value="6" data-i18n="settings.fast">Fast</option><option value="10" data-i18n="settings.high">High</option>
           </select>
         </label>
-        <label class="voice" title="Áudio de referência (5–30 s) para clonar a voz">
+        <label class="voice" data-i18n-title="settings.voiceTitle">
           <input type="file" class="voice-file" accept="audio/*" hidden>
-          <span class="voice-label">Voz: padrão</span>
+          <span class="voice-label" data-i18n="settings.voiceDefault">Voice: default</span>
         </label>
-        <button class="voice-clear link" hidden>remover</button>
+        <button class="voice-clear link" data-i18n="settings.voiceRemove" hidden>remove</button>
       </div>
     </div>
   </footer>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/i18n.js?v=3"></script>
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>

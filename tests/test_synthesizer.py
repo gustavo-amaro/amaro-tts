@@ -1,4 +1,4 @@
-"""Testa a integração com o VoxCPM sem carregar o modelo: VoxCPM.from_pretrained é substituído."""
+"""Tests the VoxCPM integration without loading the model: VoxCPM.from_pretrained is replaced."""
 import runpy
 import sys
 from pathlib import Path
@@ -37,7 +37,7 @@ class FakeVoxCPM:
 
 @pytest.fixture(autouse=True)
 def fake_voxcpm(monkeypatch):
-    # garante que o monkeypatch global do patch_xpu seja desfeito após o teste
+    # make sure patch_xpu's global monkeypatch is undone after the test
     monkeypatch.setattr(vx2, "resolve_runtime_device", vx2.resolve_runtime_device)
     monkeypatch.setattr(voxcpm, "VoxCPM", FakeVoxCPM)
     FakeModel.instances.clear()
@@ -78,7 +78,7 @@ def test_tts_cli(tmp_path, monkeypatch, capsys):
     assert model.generate_kwargs == {"text": "Texto", "reference_wav_path": "ref.wav", "prompt_wav_path": None,
                                      "prompt_text": None, "cfg_value": 2.0, "inference_timesteps": 3}
     assert sf.info(out).samplerate == 24000
-    assert f"salvo: {out}" in capsys.readouterr().err
+    assert f"saved: {out}" in capsys.readouterr().err
 
 
 def test_tts_import_does_not_run_cli():

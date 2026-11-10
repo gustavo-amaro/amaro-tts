@@ -1,4 +1,4 @@
-"""Pub/sub de eventos por canal (documento ou "exports"), entregues ao event loop do servidor."""
+"""Per-channel event pub/sub (a document or "exports"), delivered to the server's event loop."""
 import asyncio
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -15,7 +15,7 @@ class EventBus:
         self._loop = loop
 
     def publish(self, channel: str, event: dict):
-        """Pode ser chamado de qualquer thread."""
+        """Safe to call from any thread."""
         if self._loop is None:
             return
         for q in list(self._subscribers.get(channel, ())):

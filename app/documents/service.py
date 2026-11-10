@@ -1,4 +1,4 @@
-"""Casos de uso dos documentos: upload, extração, abertura, páginas e cursor de leitura."""
+"""Document use cases: upload, extraction, opening, pages and reading cursor."""
 import hashlib
 import time
 from collections.abc import Callable
@@ -8,11 +8,11 @@ from ..errors import InvalidInput, NotFound
 from ..events import Publisher
 from .repository import DocumentRepository
 
-Extractor = Callable[[str, Callable[[int, int], None]], dict]  # (caminho do pdf, progresso) -> {"pages", "chunks"}
+Extractor = Callable[[str, Callable[[int, int], None]], dict]  # (pdf path, progress) -> {"pages", "chunks"}
 
 
 class ReadAhead(Protocol):
-    """O que o serviço precisa do gerador de áudio do leitor."""
+    """What the service needs from the reader's audio generator."""
 
     def is_ready(self, doc_id: str, idx: int) -> bool: ...
 
@@ -44,14 +44,14 @@ class DocumentService:
         return sorted(metas, key=lambda m: m.get("opened", 0), reverse=True)
 
     def upload(self, filename: str | None, content: bytes) -> dict:
-        """Salva o PDF. Se o status retornado for "extracting", o chamador deve rodar `extract` em segundo plano."""
+        """Stores the PDF. If the returned status is "extracting", the caller must run `extract` in the background."""
         if not content.startswith(b"%PDF"):
-            raise InvalidInput("arquivo não é um PDF")
+            raise InvalidInput("not_pdf", "file is not a PDF")
         doc_id = hashlib.sha1(content).hexdigest()[:16]
         if self._repo.exists(doc_id) and self._repo.read_meta(doc_id)["status"] == "ready":
             return {"id": doc_id, "status": "ready"}
         self._repo.save_pdf(doc_id, content)
-        self._repo.write_meta({"id": doc_id, "name": filename or "documento.pdf", "status": "extracting",
+        self._repo.write_meta({"id": doc_id, "name": filename or "document.pdf", "status": "extracting",
                                "opened": time.time()})
         return {"id": doc_id, "status": "extracting"}
 
@@ -90,7 +90,7 @@ class DocumentService:
     def page(self, doc_id: str, n: int) -> dict:
         data = self._content(doc_id)
         if not 0 <= n < len(data["pages"]):
-            raise NotFound("página inexistente")
+            raise NotFound("page_not_found", "page does not exist")
         page = data["pages"][n]
         ids = range(page["first"], page["last"] + 1)
         return {

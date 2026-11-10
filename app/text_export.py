@@ -1,4 +1,4 @@
-"""Caso de uso "texto -> áudio para download": valida e divide o texto, delega a geração à fila."""
+"""Use case "text -> downloadable audio": validates and splits the text, hands generation to the queue."""
 import re
 from pathlib import Path
 
@@ -15,12 +15,13 @@ class TextExportService:
     def create(self, text: str, style: str | None) -> dict:
         text = text.replace("\r\n", "\n").strip()
         if not text:
-            raise InvalidInput("texto vazio")
+            raise InvalidInput("text_empty", "empty text")
         if len(text) > self._max_chars:
-            raise InvalidInput(f"texto muito longo (máx. {self._max_chars} caracteres)")
+            raise InvalidInput("text_too_long", f"text too long (max. {self._max_chars} characters)",
+                               max=self._max_chars)
         texts, paras = chunk_plain_text(text)
         if not texts:
-            raise InvalidInput("nenhum texto legível")
+            raise InvalidInput("text_unreadable", "no readable text")
         title = " ".join(text.split()[:8])[:60]
         style = (style or "").strip().strip("()") or None
         return self._queue.create(title, texts, paras, style)
@@ -29,15 +30,15 @@ class TextExportService:
         return self._queue.list()
 
     def audio(self, job_id: str) -> tuple[Path, str]:
-        """Caminho do MP3 pronto e um nome de arquivo seguro para download."""
+        """Path of the finished MP3 and a safe filename for download."""
         job = self._queue.get(job_id)
         path = self._queue.audio_path(job_id)
         if not job or job["status"] != "done" or not path.exists():
-            raise NotFound("áudio não disponível")
+            raise NotFound("audio_unavailable", "audio not available")
         name = re.sub(r"[^\w\- ]+", "", job["title"]).strip()[:50] or "audio"
         return path, f"{name}.mp3"
 
     def delete(self, job_id: str):
         if not self._queue.get(job_id):
-            raise NotFound("não encontrado")
+            raise NotFound("export_not_found", "export not found")
         self._queue.delete(job_id)

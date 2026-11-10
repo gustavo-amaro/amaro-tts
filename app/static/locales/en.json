@@ -1,0 +1,108 @@
+{
+  "app": {
+    "language": "Language"
+  },
+  "nav": {
+    "home": "Read PDF",
+    "tts": "Text to audio"
+  },
+  "engine": {
+    "loading": "Loading model…",
+    "ready": "VoxCPM2 ready",
+    "error": "Failed to load model"
+  },
+  "home": {
+    "drop": "Drop a PDF here",
+    "dropHint": "or click to choose",
+    "docs": "Your documents",
+    "empty": "No documents yet.",
+    "docInfo": {
+      "one": "{count} page · {pct}% read",
+      "other": "{count} pages · {pct}% read"
+    }
+  },
+  "doc": {
+    "status": {
+      "extracting": "extracting text…",
+      "error": "failed to read",
+      "ready": "ready"
+    },
+    "extracting": "Extracting text from the PDF…",
+    "readFailed": "Could not read the PDF: {error}",
+    "noText": "No text found (scanned PDF? it would need OCR).",
+    "emptyPage": "This page has no text."
+  },
+  "reader": {
+    "prevPage": "Previous page",
+    "nextPage": "Next page",
+    "pageShort": "p."
+  },
+  "player": {
+    "prev": "Previous chunk (←)",
+    "play": "Play / pause (space)",
+    "next": "Next chunk (→)",
+    "ready": "Ready",
+    "speed": "Speed",
+    "generatingCurrent": "Generating audio for this chunk…",
+    "waitingModel": "Waiting for the model to load…",
+    "clickToPlay": "Click ▶ to play ({error})",
+    "end": "End of document.",
+    "position": "Chunk {current} of {total}",
+    "paused": "paused",
+    "ahead": {
+      "one": "{count} chunk ready ahead",
+      "other": "{count} chunks ready ahead"
+    },
+    "aheadSeconds": "(~{seconds} s)",
+    "generatingNext": "generating the next chunks…"
+  },
+  "settings": {
+    "quality": "Quality",
+    "fast": "Fast",
+    "high": "High",
+    "voiceTitle": "Reference audio (5–30 s) to clone the voice",
+    "voiceDefault": "Voice: default",
+    "voiceCustom": "Voice: custom",
+    "voiceRemove": "remove"
+  },
+  "tts": {
+    "title": "Text to audio",
+    "lead": "Paste some text and generate an MP3 with the configured voice. Paragraphs separated by a blank line get a longer pause.",
+    "placeholder": "Paste or type the text here…",
+    "stylePlaceholder": "Style (optional): e.g. calm and warm tone, a little slower",
+    "chars": {
+      "one": "{count} character",
+      "other": "{count} characters"
+    },
+    "estimate": "~{audio} of audio · ~{generate} to generate",
+    "submit": "Generate audio",
+    "history": "Generations",
+    "empty": "No audio generated yet.",
+    "emptyText": "Type or paste some text.",
+    "voiceCustom": "custom voice",
+    "voiceDefault": "default voice",
+    "download": "Download MP3",
+    "delete": "delete",
+    "cancel": "cancel",
+    "failed": "Failed: {error}",
+    "queued": "queued…",
+    "progress": "generating · {done}/{total} chunks ({pct}%)"
+  },
+  "time": {
+    "seconds": "{n} s",
+    "minutes": "{n} min"
+  },
+  "errors": {
+    "generic": "Something went wrong ({status}).",
+    "not_pdf": "The file is not a PDF.",
+    "doc_not_found": "Document not found.",
+    "doc_processing": "The document is still being processed.",
+    "page_not_found": "This page does not exist.",
+    "text_empty": "The text is empty.",
+    "text_too_long": "The text is too long (max. {max} characters).",
+    "text_unreadable": "No readable text.",
+    "audio_unavailable": "Audio is not available.",
+    "export_not_found": "Export not found.",
+    "audio_unsupported": "Unsupported audio format (use wav, flac, ogg or mp3)."
+  }
+}

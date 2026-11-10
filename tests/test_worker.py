@@ -50,7 +50,7 @@ def test_runs_sources_in_priority_order_and_waits_for_new_work():
     assert log[1][2:] == (1600, synth.sample_rate)
     assert worker.status == "ready"
 
-    with wakeup:  # worker está bloqueado esperando; nova tarefa + notify o acorda
+    with wakeup:  # worker is blocked waiting; a new task + notify wakes it
         low.tasks.append(StubTask("b2", log))
         wakeup.notify_all()
     wait_until(lambda: ("done", "b2", 1600, synth.sample_rate) in log)
@@ -68,6 +68,6 @@ def test_synthesis_error_calls_failed_and_keeps_running():
 def test_load_error_sets_status_and_stops():
     log = []
     worker = TtsWorker(FakeSynth(load_error=RuntimeError("sem GPU")), threading.Condition(), [ListSource(log, "x")])
-    worker._run()  # retorna em vez de entrar no laço
+    worker._run()  # returns instead of entering the loop
     assert worker.status == "error"
     assert log == []

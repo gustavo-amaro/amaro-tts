@@ -89,7 +89,7 @@ def test_failed_is_tracked_skipped_and_published(reader, publish, synthesis):
     assert reader.is_failed("doc", 0)
     assert publish.of("doc", "chunk_error") == [{"type": "chunk_error", "id": 0, "error": "boom"}]
     assert reader.next_task(2).idx == 1
-    synthesis.update(steps=3)  # outra chave: tenta de novo
+    synthesis.update(steps=3)  # different key: retry
     assert not reader.is_failed("doc", 0)
     assert reader.next_task(2).idx == 0
 

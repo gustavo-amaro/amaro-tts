@@ -14,7 +14,7 @@ CHUNK_SECONDS = 0.1
 
 
 class FakeSynth:
-    """Sintetizador sem modelo: devolve 0,1 s de áudio e falha em textos com "FALHA"."""
+    """Model-free synthesizer: returns 0.1 s of audio and fails on texts containing "FALHA"."""
 
     def __init__(self, load_error: Exception | None = None):
         self.sample_rate = SR
@@ -33,7 +33,7 @@ class FakeSynth:
 
 
 class Recorder:
-    """Publisher que guarda os eventos publicados."""
+    """Publisher that records the published events."""
 
     def __init__(self):
         self.events: list[tuple[str, dict]] = []
@@ -51,11 +51,11 @@ def wait_until(cond, timeout=10.0):
         if cond():
             return
         time.sleep(0.02)
-    raise AssertionError("condição não satisfeita a tempo")
+    raise AssertionError("condition not met in time")
 
 
 def notifies(wakeup: threading.Condition, action) -> bool:
-    """True se `action` acorda uma thread esperando em `wakeup`."""
+    """True if `action` wakes a thread waiting on `wakeup`."""
     ready, woke = threading.Event(), threading.Event()
 
     def waiter():
@@ -73,7 +73,7 @@ def notifies(wakeup: threading.Condition, action) -> bool:
 
 
 def make_pdf(pages: list[list[str]]) -> bytes:
-    """Um bloco de texto por item, bem separados verticalmente."""
+    """One text block per item, well separated vertically."""
     doc = pymupdf.open()
     for blocks in pages:
         page = doc.new_page()

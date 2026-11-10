@@ -1,4 +1,4 @@
-"""Thread única que mantém o modelo na GPU e executa tarefas de síntese por ordem de prioridade."""
+"""Single thread that keeps the model on the GPU and runs synthesis tasks in priority order."""
 import sys
 import threading
 import time
@@ -13,7 +13,7 @@ from .synthesizer import Synthesizer
 
 
 class Task(ABC):
-    """Um trecho a sintetizar. Cada origem (leitor, exportação) define o que fazer com o resultado."""
+    """A chunk to synthesize. Each source (reader, export) decides what to do with the result."""
 
     def __init__(self, text: str, settings: dict, voice: Path | None, label: str):
         self.text = text
@@ -36,7 +36,7 @@ TaskSource = Callable[[], Task | None]
 
 class TtsWorker:
     def __init__(self, synthesizer: Synthesizer, wakeup: threading.Condition, sources: Sequence[TaskSource]):
-        """`sources` são consultadas em ordem (com `wakeup` adquirido); a primeira tarefa encontrada vence."""
+        """`sources` are polled in order (with `wakeup` held); the first task found wins."""
         self._synth = synthesizer
         self._wakeup = wakeup
         self._sources = sources
@@ -75,7 +75,7 @@ class TtsWorker:
             task.started()
             wav = self._synth.generate(task.text, task.settings, task.voice)
             sr = self._synth.sample_rate
-            print(f"[engine] {task.label} {len(wav) / sr:.1f}s áudio em {time.time() - t0:.1f}s", file=sys.stderr)
+            print(f"[engine] {task.label} {len(wav) / sr:.1f}s audio in {time.time() - t0:.1f}s", file=sys.stderr)
             task.done(wav, sr)
         except Exception as e:
             traceback.print_exc()

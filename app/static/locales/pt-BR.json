@@ -1,0 +1,109 @@
+{
+  "app": {
+    "language": "Idioma"
+  },
+  "nav": {
+    "home": "Ler PDF",
+    "tts": "Texto para áudio"
+  },
+  "engine": {
+    "loading": "Carregando modelo…",
+    "ready": "VoxCPM2 pronto",
+    "error": "Erro ao carregar modelo"
+  },
+  "home": {
+    "drop": "Solte um PDF aqui",
+    "dropHint": "ou clique para escolher",
+    "docs": "Seus documentos",
+    "empty": "Nenhum documento ainda.",
+    "docInfo": {
+      "one": "{count} página · {pct}% lido",
+      "other": "{count} páginas · {pct}% lido"
+    }
+  },
+  "doc": {
+    "status": {
+      "extracting": "extraindo texto…",
+      "error": "falha na leitura",
+      "ready": "pronto"
+    },
+    "extracting": "Extraindo texto do PDF…",
+    "readFailed": "Não foi possível ler o PDF: {error}",
+    "noText": "Nenhum texto encontrado (PDF escaneado? precisaria de OCR).",
+    "emptyPage": "Página sem texto."
+  },
+  "reader": {
+    "prevPage": "Página anterior",
+    "nextPage": "Próxima página",
+    "pageShort": "p."
+  },
+  "player": {
+    "prev": "Trecho anterior (←)",
+    "play": "Tocar / pausar (espaço)",
+    "next": "Próximo trecho (→)",
+    "ready": "Pronto",
+    "speed": "Velocidade",
+    "generatingCurrent": "Gerando áudio deste trecho…",
+    "waitingModel": "Aguardando o modelo carregar…",
+    "clickToPlay": "Clique em ▶ para tocar ({error})",
+    "end": "Fim do documento.",
+    "position": "Trecho {current} de {total}",
+    "paused": "pausado",
+    "ahead": {
+      "one": "{count} trecho pronto à frente",
+      "other": "{count} trechos prontos à frente"
+    },
+    "aheadSeconds": "(~{seconds} s)",
+    "generatingNext": "gerando os próximos trechos…"
+  },
+  "settings": {
+    "quality": "Qualidade",
+    "fast": "Rápida",
+    "high": "Alta",
+    "voiceTitle": "Áudio de referência (5–30 s) para clonar a voz",
+    "voiceDefault": "Voz: padrão",
+    "voiceCustom": "Voz: personalizada",
+    "voiceRemove": "remover"
+  },
+  "tts": {
+    "title": "Texto para áudio",
+    "lead": "Cole um texto e gere um MP3 com a voz configurada. Parágrafos separados por linha em branco ganham uma pausa maior.",
+    "placeholder": "Cole ou digite o texto aqui…",
+    "stylePlaceholder": "Estilo (opcional): ex. tom calmo e acolhedor, um pouco mais lento",
+    "chars": {
+      "zero": "{count} caracteres",
+      "one": "{count} caractere",
+      "other": "{count} caracteres"
+    },
+    "estimate": "~{audio} de áudio · ~{generate} para gerar",
+    "submit": "Gerar áudio",
+    "history": "Gerações",
+    "empty": "Nenhum áudio gerado ainda.",
+    "emptyText": "Digite ou cole algum texto.",
+    "voiceCustom": "voz personalizada",
+    "voiceDefault": "voz padrão",
+    "download": "Baixar MP3",
+    "delete": "apagar",
+    "cancel": "cancelar",
+    "failed": "Falhou: {error}",
+    "queued": "na fila…",
+    "progress": "gerando · {done}/{total} trechos ({pct}%)"
+  },
+  "time": {
+    "seconds": "{n} s",
+    "minutes": "{n} min"
+  },
+  "errors": {
+    "generic": "Algo deu errado ({status}).",
+    "not_pdf": "O arquivo não é um PDF.",
+    "doc_not_found": "Documento não encontrado.",
+    "doc_processing": "O documento ainda está sendo processado.",
+    "page_not_found": "Esta página não existe.",
+    "text_empty": "O texto está vazio.",
+    "text_too_long": "O texto é muito longo (máx. {max} caracteres).",
+    "text_unreadable": "Nenhum texto legível.",
+    "audio_unavailable": "Áudio não disponível.",
+    "export_not_found": "Exportação não encontrada.",
+    "audio_unsupported": "Formato de áudio não suportado (use wav, flac, ogg ou mp3)."
+  }
+}

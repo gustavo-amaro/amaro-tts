@@ -1,8 +1,10 @@
+import itertools
 import json
 
 import pytest
 import soundfile as sf
 
+from app.tts import exports as exports_module
 from app.tts.exports import CHANNEL, ExportQueue
 from conftest import SR, fake_wav, notifies, wav_bytes
 
@@ -28,7 +30,7 @@ def test_create_persists_and_hides_texts(queue, tmp_path, wakeup):
     assert "texts" not in job and "paras" not in job
     assert job["status"] == "queued" and job["total"] == 2 and job["done"] == 0
     assert job["voice"] is False and job["settings"] == {"steps": 6, "cfg": 2.0, "seed": 42}
-    saved = json.loads((tmp_path / "exports" / job["id"] / "job.json").read_text())
+    saved = json.loads((tmp_path / "exports" / job["id"] / "job.json").read_text(encoding="utf-8"))
     assert saved["texts"] == ["a", "b"]
 
 
@@ -57,7 +59,7 @@ def test_progress_then_finalize_to_mp3(queue, publish):
     assert publish.of(CHANNEL) == [{"type": "export_progress", "job": job["id"], "done": 1, "total": 3}]
     run_all(queue)
     done = queue.get(job["id"])
-    # 3 trechos de 0,1 s + pausa de trecho (0,12) + pausa de parágrafo (0,30)
+    # 3 chunks of 0.1 s + chunk pause (0.12) + paragraph pause (0.30)
     assert done["status"] == "done" and done["duration"] == 0.7
     path = queue.audio_path(job["id"])
     assert sf.info(path).duration == pytest.approx(0.72, abs=0.06)
@@ -70,7 +72,7 @@ def test_result_of_cancelled_or_stale_task_is_ignored(queue, publish):
     job = queue.create("A", ["um", "dois"], [0, 0], None)
     task = queue.next_task()
     task.done(fake_wav(), SR)
-    task.done(fake_wav(), SR)  # índice já gravado
+    task.done(fake_wav(), SR)  # index already saved
     assert queue.get(job["id"])["done"] == 1
     task2 = queue.next_task()
     queue.delete(job["id"])
@@ -86,17 +88,20 @@ def test_failure_marks_job_as_error(queue, publish):
     assert queue.get(job["id"])["status"] == "error" and queue.get(job["id"])["error"] == "boom"
     assert publish.of(CHANNEL) == [{"type": "export_error", "job": job["id"], "error": "boom"}]
     assert queue.next_task() is None
-    task.failed("de novo")  # job já fora da fila
+    task.failed("de novo")  # job already out of the queue
     assert len(publish.of(CHANNEL)) == 1
 
 
-def test_list_is_newest_first_with_live_progress(queue, tmp_path):
+def test_list_is_newest_first_with_live_progress(queue, tmp_path, monkeypatch):
+    # deterministic clock: on Windows time.time() ticks every ~15 ms, so A and B could tie on "created"
+    clock = itertools.count(1000)
+    monkeypatch.setattr(exports_module.time, "time", lambda: next(clock))
     a = queue.create("A", ["um", "dois"], [0, 0], None)
     b = queue.create("B", ["um"], [0], None)
     queue.next_task().done(fake_wav(), SR)
-    # o disco ficou com done=1; simula um disco atrasado para ver a precedência da memória
+    # disk holds done=1; simulate a stale disk to check that memory takes precedence
     p = tmp_path / "exports" / a["id"] / "job.json"
-    p.write_text(json.dumps({**json.loads(p.read_text()), "done": 0, "status": "queued"}))
+    p.write_text(json.dumps({**json.loads(p.read_text(encoding="utf-8")), "done": 0, "status": "queued"}), encoding="utf-8")
     jobs = queue.list()
     assert [j["id"] for j in jobs] == [b["id"], a["id"]]
     assert jobs[1]["done"] == 1 and jobs[1]["status"] == "running"
@@ -126,9 +131,9 @@ def test_resume_pending_jobs_from_parts(tmp_path, synthesis, wakeup, publish):
     pending = q1.create("Pendente", ["um", "dois", "três"], [0, 0, 0], None)
     q1.next_task().done(fake_wav(), SR)
     q1.next_task().done(fake_wav(), SR)
-    # o progresso retomado vem das partes em disco, não do campo "done"
+    # resumed progress comes from the parts on disk, not from the "done" field
     p = tmp_path / "exports" / pending["id"] / "job.json"
-    p.write_text(json.dumps({**json.loads(p.read_text()), "done": 0}))
+    p.write_text(json.dumps({**json.loads(p.read_text(encoding="utf-8")), "done": 0}), encoding="utf-8")
 
     q2 = ExportQueue(tmp_path / "exports", synthesis, wakeup, publish)
     task = q2.next_task()

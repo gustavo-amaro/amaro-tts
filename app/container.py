@@ -1,4 +1,4 @@
-"""Raiz de composição: o único lugar que instancia as implementações concretas e as liga entre si."""
+"""Composition root: the only place that instantiates the concrete implementations and wires them together."""
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,11 +29,11 @@ class Container:
 def build_container(synthesizer: Synthesizer | None = None, data_dir: Path = config.DATA_DIR) -> Container:
     docs_dir, exports_dir = data_dir / config.DOCS_DIR.name, data_dir / config.EXPORTS_DIR.name
     bus = EventBus()
-    wakeup = threading.Condition()  # protege o estado lido pelo worker e o acorda quando algo muda
+    wakeup = threading.Condition()  # guards the state the worker reads and wakes it when something changes
     synthesis = SynthesisConfig(data_dir, wakeup)
     reader = ReaderQueue(docs_dir, synthesis, wakeup, bus.publish)
     queue = ExportQueue(exports_dir, synthesis, wakeup, bus.publish)
-    # prioridade: próximos trechos do leitor > exportações > resto do buffer do leitor
+    # priority: reader's next chunks > exports > rest of the reader's buffer
     worker = TtsWorker(synthesizer or VoxCPMSynthesizer(), wakeup, [
         lambda: reader.next_task(URGENT_AHEAD),
         queue.next_task,

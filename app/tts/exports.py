@@ -1,4 +1,4 @@
-"""Fila persistente de exportações (texto -> arquivo MP3), retomada após reinício do servidor."""
+"""Persistent export queue (text -> MP3 file), resumed after a server restart."""
 import json
 import os
 import shutil
@@ -16,7 +16,7 @@ from .config import SynthesisConfig
 from .worker import Task
 
 CHANNEL = "exports"
-PAUSE_PARAGRAPH = 0.30  # silêncio entre parágrafos no áudio exportado (s)
+PAUSE_PARAGRAPH = 0.30  # silence between paragraphs in the exported audio (s)
 PAUSE_CHUNK = 0.12
 
 
@@ -39,16 +39,16 @@ class ExportQueue:
         self._config = config
         self._wakeup = wakeup
         self._publish = publish
-        self._pending: dict[str, dict] = {}  # jobs pendentes, em ordem de chegada
+        self._pending: dict[str, dict] = {}  # pending jobs, in arrival order
         self._resume()
 
-    # ---------- persistência ----------
+    # ---------- persistence ----------
     def _job_dir(self, job_id: str) -> Path:
         return self._dir / job_id
 
     def _save(self, job: dict):
         tmp = self._job_dir(job["id"]) / "job.json.tmp"
-        tmp.write_text(json.dumps(job, ensure_ascii=False))
+        tmp.write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
         os.replace(tmp, tmp.with_suffix(""))
 
     @staticmethod
@@ -57,7 +57,7 @@ class ExportQueue:
 
     def _resume(self):
         for p in sorted(self._dir.glob("*/job.json"), key=lambda p: p.stat().st_mtime):
-            job = json.loads(p.read_text())
+            job = json.loads(p.read_text(encoding="utf-8"))
             if job["status"] in ("queued", "running"):
                 parts = self._job_dir(job["id"]) / "parts"
                 done = 0
@@ -66,13 +66,13 @@ class ExportQueue:
                 job["done"] = done
                 self._pending[job["id"]] = job
 
-    # ---------- operações ----------
+    # ---------- operations ----------
     def create(self, title: str, texts: list[str], paras: list[int], style: str | None) -> dict:
         job_id = uuid.uuid4().hex[:12]
         folder = self._job_dir(job_id)
         (folder / "parts").mkdir(parents=True, exist_ok=True)
         voice = self._config.voice()
-        if voice:  # congela a voz atual para este job
+        if voice:  # freeze the current voice for this job
             shutil.copy(voice, folder / "voice.wav")
         job = {"id": job_id, "title": title, "created": time.time(), "status": "queued",
                "total": len(texts), "done": 0, "texts": texts, "paras": paras, "style": style,
@@ -84,9 +84,10 @@ class ExportQueue:
         return self._public(job)
 
     def list(self) -> list[dict]:
-        jobs = [json.loads(p.read_text()) for p in self._dir.glob("*/job.json")]
+        # read under the lock: on Windows, os.replace in _save fails while another thread has the file open
         with self._wakeup:
-            for j in jobs:  # progresso em memória é mais recente que o do disco
+            jobs = [json.loads(p.read_text(encoding="utf-8")) for p in self._dir.glob("*/job.json")]
+            for j in jobs:  # in-memory progress is newer than what is on disk
                 if j["id"] in self._pending:
                     j.update(done=self._pending[j["id"]]["done"], status=self._pending[j["id"]]["status"])
         return sorted((self._public(j) for j in jobs), key=lambda j: j["created"], reverse=True)
@@ -98,19 +99,19 @@ class ExportQueue:
         with self._wakeup:
             if job_id in self._pending:
                 return self._public(self._pending[job_id])
-        return self._public(json.loads(p.read_text()))
+            return self._public(json.loads(p.read_text(encoding="utf-8")))
 
     def audio_path(self, job_id: str) -> Path:
         return self._job_dir(job_id) / "audio.mp3"
 
     def delete(self, job_id: str):
-        with self._wakeup:  # o worker só grava partes segurando o lock, então não há corrida
+        with self._wakeup:  # the worker only writes parts while holding the lock, so there is no race
             self._pending.pop(job_id, None)
             shutil.rmtree(self._job_dir(job_id), ignore_errors=True)
 
     # ---------- worker ----------
     def next_task(self) -> ExportTask | None:
-        """Próximo trecho do job mais antigo. Chamado com `wakeup` adquirido."""
+        """Next chunk of the oldest job. Called with `wakeup` held."""
         for job in self._pending.values():
             i = job["done"]
             voice = self._job_dir(job["id"]) / "voice.wav"
@@ -124,7 +125,7 @@ class ExportQueue:
         job_id, idx = task.job_id, task.idx
         with self._wakeup:
             job = self._pending.get(job_id)
-            if job is None or job["done"] != idx:  # cancelado no meio da geração
+            if job is None or job["done"] != idx:  # cancelled mid-generation
                 return
             sf.write(self._job_dir(job_id) / "parts" / f"{idx}.wav", wav, sample_rate, subtype="PCM_16")
             job["done"] = idx + 1
@@ -159,7 +160,8 @@ class ExportQueue:
         sf.write(tmp, audio, sr, format="MP3", subtype="MPEG_LAYER_III")
         os.replace(tmp, self.audio_path(job["id"]))
         shutil.rmtree(folder / "parts", ignore_errors=True)
-        job.update(status="done", duration=round(len(audio) / sr, 1))
-        self._save(job)
-        print(f"[engine] exportação {job['id']} pronta: {job['duration']}s", file=sys.stderr)
+        with self._wakeup:
+            job.update(status="done", duration=round(len(audio) / sr, 1))
+            self._save(job)
+        print(f"[engine] export {job['id']} done: {job['duration']}s", file=sys.stderr)
         self._publish(CHANNEL, {"type": "export_done", "job": job["id"], "duration": job["duration"]})

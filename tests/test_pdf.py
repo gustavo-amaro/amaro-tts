@@ -64,12 +64,12 @@ def test_build_document_offsets_match_page_text(tmp_path):
     for c in chunks:
         assert pages[c["page"]]["text"][c["start"]:c["end"]] == c["text"]
     assert pages[0]["first"] == 0 and pages[0]["last"] == 1
-    assert pages[1]["first"] == 2 and pages[1]["last"] == 1  # página sem trechos legíveis
+    assert pages[1]["first"] == 2 and pages[1]["last"] == 1  # page without readable chunks
     assert pages[2]["first"] == pages[2]["last"] == 2
 
 
 def test_build_document_trims_whitespace_at_chunk_edges(monkeypatch):
-    para = "x" * 340 + "  " + "y" * 100  # o corte em espaço deixa um espaço largo no início
+    para = "x" * 340 + "  " + "y" * 100  # cutting at a space leaves wide whitespace at the start
     monkeypatch.setattr(pdf, "extract_blocks", lambda path, progress=None: [[para]])
     chunks = pdf.build_document("ignorado")["chunks"]
     assert [c["text"] for c in chunks] == ["x" * 340, "y" * 100]
@@ -83,7 +83,7 @@ def test_cli_prints_summary(tmp_path, monkeypatch, capsys, extra):
     monkeypatch.setattr(sys, "argv", ["pdf", str(path), *extra])
     runpy.run_module("app.text.pdf", run_name="__main__")
     out = capsys.readouterr().out
-    assert "páginas=2 trechos=2" in out
+    assert "pages=2 chunks=2" in out
     assert "chars: min=14" in out
     assert out.count("[p") == (1 if extra else 2)
 
@@ -94,4 +94,4 @@ def test_cli_with_empty_pdf(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["pdf", str(path)])
     runpy.run_module("app.text.pdf", run_name="__main__")
     out = capsys.readouterr().out
-    assert "trechos=0" in out and "chars:" not in out
+    assert "chunks=0" in out and "chars:" not in out

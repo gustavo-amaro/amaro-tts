@@ -21,14 +21,15 @@ def finish(queue):
         task.done(fake_wav(), SR)
 
 
-@pytest.mark.parametrize("text, message", [
-    ("   \r\n ", "texto vazio"),
-    ("a" * 101, "texto muito longo (máx. 100 caracteres)"),
-    ("--- ...\r\n\r\n***", "nenhum texto legível"),
+@pytest.mark.parametrize("text, code, params", [
+    ("   \r\n ", "text_empty", {}),
+    ("a" * 101, "text_too_long", {"max": 100}),
+    ("--- ...\r\n\r\n***", "text_unreadable", {}),
 ])
-def test_create_validates(service, text, message):
-    with pytest.raises(InvalidInput, match=message.replace("(", r"\(").replace(")", r"\)")):
+def test_create_validates(service, text, code, params):
+    with pytest.raises(InvalidInput) as exc:
         service.create(text, None)
+    assert (exc.value.code, exc.value.params) == (code, params)
 
 
 def test_create_splits_text_and_builds_title(service, queue):
